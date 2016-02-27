@@ -1,0 +1,84 @@
+---
+title: "Practical Machine Learning Project"
+author: "Yasuhiro Ito"
+date: "Feb 22 2015"
+output: html_document
+keep_md: true
+---
+### Objective
+Using devices such as *Jawbone Up*, *Nike FuelBand*, and *Fitbit* it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [here](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
+
+
+### Creating predictor
+
+First of all, loading necessary libraries and set seed required for the processes later.
+```{r load library, message=FALSE, warning=FALSE, results="hide"}
+library(randomForest)
+library(parallel)
+library(doParallel)
+library(caret)
+set.seed(12321)
+```
+
+
+#### Data loading and clearing
+
+Downloading csv files from the URL and load 
+```{r cache=TRUE}
+training_url = url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+training <- read.csv(training_url, na.strings = c("NA",""))
+testing_url = url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+testing <- read.csv(testing_url, na.strings = c("NA",""))
+```
+
+Data profile
+```{r}
+dim(training)
+```
+
+The data has 160 variables and 19622 observations. So removing the first 7 index variables (which are not relevant to classe prediction) and "NA" variables to speed up machine learning process.
+```{r}
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+mostly_data <- apply(!is.na(training),2,sum)>=nrow(training)
+training <- training[,mostly_data]
+testing <- testing[,mostly_data]
+dim(training)
+```
+As result, the number of variables is reduced from 160 to 53.
+
+
+#### Building predicting model
+
+We will try Random Forest algorithm to build predicting model. To optimise mtry parameter, use tuneRF() function. With seed=12321, the most optimal parameter seems mtry=14.
+```{r cache=TRUE}
+x <- training[,-53]
+y <- training[,53]
+tuneRF(x,y)
+```
+
+To speed up computation, use parallel/doParallel library to enable multi-core processing.
+```{r}
+registerDoParallel(makeCluster(detectCores()-1))
+```
+
+Run Random Forest algorithm to build the predicting model - turned on allowParallel parameter in trainControl and set mtry=14 as obtained in tuneRF()
+```{r cache=TRUE}
+fitControl <- trainControl(method = "cv",allowParallel = TRUE)
+fit <- train(x,y,method="rf",data=training,trControl=fitControl,
+             tuneGrid=data.frame(mtry=14))
+```
+
+
+#### Evaluation of the model
+Accuracy of the model is 99.68%.
+```{r}
+fit$results
+```
+
+
+#### Prediction
+Predicting about test data with the model 
+```{r}
+predict(fit,testing)
+```
