@@ -5,6 +5,10 @@ date: "Feb 22 2015"
 output: html_document
 keep_md: true
 ---
+### URLs
+* GitHub Repository: [https://github.com/yappon/jhu_machine_learning](https://github.com/yappon/jhu_machine_learning)
+* GitHub Page: [http://yappon.github.io/jhu_machine_learning/project.html](http://yappon.github.io/jhu_machine_learning/project.html)
+
 ### Objective
 Using devices such as *Jawbone Up*, *Nike FuelBand*, and *Fitbit* it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [here](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
 
@@ -62,18 +66,23 @@ To speed up computation, use parallel/doParallel library to enable multi-core pr
 registerDoParallel(makeCluster(detectCores()-1))
 ```
 
-Run Random Forest algorithm to build the predicting model - turned on allowParallel parameter in trainControl and set mtry=14 as obtained in tuneRF()
+Run Random Forest algorithm to build the predicting model from 75% of training dataset (the rest 25% was used for evaluation) - specified x & y parameters not to use formula interface, chose cross validation method, turned on allowParallel parameter in trainControl and set mtry=14 as obtained in tuneRF()
 ```{r cache=TRUE}
+training_set <- createDataPartition(training$classe, p = 3/4, list = FALSE)
+training_train <- training[training_set,]
+training_test <- training[-training_set,]
+x <- training_train[,-53]
+y <- training_train[,53]
 fitControl <- trainControl(method = "cv",allowParallel = TRUE)
-fit <- train(x,y,method="rf",data=training,trControl=fitControl,
+fit <- train(x,y,method="rf",data=training_train,trControl=fitControl,
              tuneGrid=data.frame(mtry=14))
 ```
 
 
 #### Evaluation of the model
-Accuracy of the model is 99.68%.
+Accuracy of the model is 99.61%.
 ```{r}
-fit$results
+confusionMatrix(training_test$classe, predict(fit, training_test))
 ```
 
 
